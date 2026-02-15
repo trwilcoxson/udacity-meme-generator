@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h2>Your Meme</h2>
+        <img src="{{ path }}" class="img-fluid rounded shadow my-3" alt="Generated Meme">
+        <div>
+            <a href="/" class="btn btn-primary me-2">Random Meme</a>
+            <a href="/create" class="btn btn-secondary">Create Your Own</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
