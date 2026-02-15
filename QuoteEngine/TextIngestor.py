@@ -1,36 +1,51 @@
-"""Ingestor for plain text quote files."""
+"""Ingestor for plain-text (.txt) quote files."""
 
+import logging
 from typing import List
 
 from .IngestorInterface import IngestorInterface
 from .QuoteModel import QuoteModel
+from .exceptions import FileIngestError
+
+logger = logging.getLogger(__name__)
 
 
 class TextIngestor(IngestorInterface):
-    """Parse quotes from plain text files."""
+    """Parse quotes from a plain-text file.
+
+    Expected format: one quote per line as  "body" - author
+    """
 
     allowed_extensions = ['txt']
 
     @classmethod
     def parse(cls, path: str) -> List[QuoteModel]:
-        """Parse a text file and return a list of QuoteModel objects.
+        """Parse a .txt file and return QuoteModel objects.
 
-        Each line should be in the format: "body" - author
-
-        :param path: Path to the text file.
+        :param path: Path to the .txt file.
         :return: List of QuoteModel instances.
+        :raises FileIngestError: If the file cannot be read.
         """
         if not cls.can_ingest(path):
-            raise ValueError(f'Cannot ingest file: {path}')
+            raise FileIngestError(f"TextIngestor cannot ingest '{path}'")
 
-        quotes = []
-        with open(path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if ' - ' in line and len(line) > 3:
-                    parts = line.rsplit(' - ', 1)
-                    body = parts[0].strip().strip('"')
-                    author = parts[1].strip()
-                    if body and author:
-                        quotes.append(QuoteModel(body, author))
+        logger.info("Parsing text file: %s", path)
+        quotes: List[QuoteModel] = []
+
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    quote = cls._parse_quote_line(line)
+                    if quote is not None:
+                        quotes.append(quote)
+        except FileNotFoundError as exc:
+            raise FileIngestError(f"File not found: {path}") from exc
+        except PermissionError as exc:
+            raise FileIngestError(f"Permission denied: {path}") from exc
+        except UnicodeDecodeError as exc:
+            raise FileIngestError(
+                f"Cannot decode file (not valid UTF-8): {path}"
+            ) from exc
+
+        logger.info("Parsed %d quotes from %s", len(quotes), path)
         return quotes

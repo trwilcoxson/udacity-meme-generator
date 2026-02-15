@@ -1,27 +1,18 @@
-# Motivational Meme Generator
+# Meme Generator
 
-A multimedia application that dynamically generates memes by overlaying quotes on images. Interact with it through the command line or a Flask web interface.
+A multimedia application that dynamically generates memes by overlaying
+quotes on images. The application ingests quotes from multiple file formats
+(TXT, CSV, DOCX, PDF) and provides both a command-line interface and a
+Flask web application.
+
+## Prerequisites
+
+- Python 3.9+
+- **pdftotext** (part of Poppler) for PDF quote ingestion:
+  - macOS: `brew install poppler`
+  - Ubuntu/Debian: `sudo apt-get install poppler-utils`
 
 ## Setup
-
-### Prerequisites
-
-- Python 3.6+
-- `pdftotext` CLI tool (from xpdf or poppler-utils)
-
-Install the system dependency:
-
-```bash
-# macOS
-brew install xpdf
-# or
-brew install poppler
-
-# Ubuntu/Debian
-sudo apt-get install -y xpdf
-```
-
-### Install Python Dependencies
 
 ```bash
 python3 -m venv venv
@@ -31,66 +22,78 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Command Line Interface
+### Command-Line Interface
 
 Generate a random meme:
 
 ```bash
-python3 meme.py
+python meme.py
 ```
 
-Generate a meme with specific arguments:
+Generate a meme with a specific quote:
 
 ```bash
-python3 meme.py --path "./_data/photos/dog/xander_1.jpg" --body "To be or not to be" --author "Shakespeare"
+python meme.py --body "To be or not to be" --author "Shakespeare"
 ```
 
-Arguments:
-- `--path`: Path to an image file (optional; random if not given)
-- `--body`: Quote body text (optional; random if not given)
-- `--author`: Quote author (required if `--body` is provided)
+Generate a meme with a specific image and quote:
+
+```bash
+python meme.py --path ./_data/photos/dog/xander_1.jpg --body "Woof" --author "Dog"
+```
 
 ### Flask Web Application
 
 ```bash
-python3 app.py
+python app.py
 ```
 
-Then visit [http://localhost:5000](http://localhost:5000).
-
-- **Home page** (`/`): Displays a randomly generated meme
-- **Create page** (`/create`): Form to create a custom meme from an image URL, quote, and author
+Then open http://localhost:5000 in your browser. Use the homepage for random
+memes or navigate to the "Create" page to supply a custom image URL and
+quote.
 
 ## Project Structure
 
-### QuoteEngine Package
+### QuoteEngine
 
-Handles ingesting quotes from multiple file formats using the strategy design pattern.
+Responsible for ingesting quotes from various file formats.
 
-- **QuoteModel** (`QuoteModel.py`): Data class encapsulating a quote's `body` and `author`.
-- **IngestorInterface** (`IngestorInterface.py`): Abstract base class defining `can_ingest` and `parse` class methods. All ingestors inherit from this.
-- **CSVIngestor** (`CSVIngestor.py`): Parses CSV files using pandas. Expects `body` and `author` columns.
-- **DocxIngestor** (`DocxIngestor.py`): Parses DOCX files using python-docx. Each paragraph should be `"body" - author`.
-- **PDFIngestor** (`PDFIngestor.py`): Parses PDF files using subprocess calls to the `pdftotext` CLI tool. Temporary files are cleaned up after parsing.
-- **TextIngestor** (`TextIngestor.py`): Parses plain text files. Each line should be `"body" - author`.
-- **Ingestor** (`Ingestor.py`): Facade class implementing the strategy pattern. Selects the appropriate ingestor based on file extension.
+| Module | Description | Dependencies |
+|---|---|---|
+| `QuoteModel.py` | Data class representing a quote (body + author) | — |
+| `IngestorInterface.py` | ABC defining the ingestor contract | — |
+| `TextIngestor.py` | Parses `.txt` files | — |
+| `CSVIngestor.py` | Parses `.csv` files | pandas |
+| `DocxIngestor.py` | Parses `.docx` files | python-docx |
+| `PDFIngestor.py` | Parses `.pdf` files via subprocess | pdftotext CLI |
+| `Ingestor.py` | Facade that delegates to the correct ingestor | — |
+| `exceptions.py` | Custom exception classes | — |
 
-### MemeEngine Package
+Example:
 
-Handles image manipulation for meme generation.
+```python
+from QuoteEngine import Ingestor
 
-- **MemeEngine** (`MemeEngine.py`): Loads images with Pillow, resizes to a max width of 500px (maintaining aspect ratio), draws the quote text and author with a shadow effect for readability, and saves the result.
+quotes = Ingestor.parse('./_data/DogQuotes/DogQuotesTXT.txt')
+for q in quotes:
+    print(q)  # "Bark like no one's listening" - Rex
+```
 
-### Application Files
+### MemeEngine
 
-- **meme.py**: CLI tool using argparse for generating memes from the command line.
-- **app.py**: Flask web application with routes for random meme generation and custom meme creation.
+Responsible for generating meme images.
 
-## Dependencies
+| Module | Description | Dependencies |
+|---|---|---|
+| `MemeEngine.py` | Loads, resizes, and overlays text on images | Pillow |
+| `exceptions.py` | Custom exception class | — |
 
-- Flask - Web framework
-- Pillow - Image manipulation
-- pandas - CSV parsing
-- python-docx - DOCX file parsing
-- requests - Downloading images from URLs
-- pdftotext (system tool) - PDF text extraction
+Example:
+
+```python
+from MemeEngine import MemeEngine
+
+m = MemeEngine('./tmp')
+path = m.make_meme('./_data/photos/dog/xander_1.jpg', 'Hello', 'World')
+print(path)  # ./tmp/abc123.png
+```

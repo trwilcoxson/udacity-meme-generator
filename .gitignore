@@ -1,5 +1,10 @@
 venv/
 __pycache__/
 *.pyc
-tmp/*.jpg
+*.pyo
+tmp/
+static/
 .DS_Store
+*.egg-info/
+dist/
+build/

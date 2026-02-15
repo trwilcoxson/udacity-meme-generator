@@ -1,20 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motivational Meme Generator</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body>
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="/">Meme Generator</a>
-            <a class="btn btn-outline-light" href="/create">Create</a>
+<!doctype html>
+<html>
+    <head>
+        <title>{% block title %}{% endblock %}</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <style>
+            body {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+                background: #F5FCFE;
+            }
+
+            .nav {
+                display: inline;
+                padding: 60px;
+            }
+
+            img {
+                border: 1px solid rgba(0,0,0,.125);
+                border-radius: .25rem;
+                }
+        </style>
+    </head>
+    <body>
+        {% block body %}{% endblock %}
+
+        <div class="nav">
+            <a class="btn btn-primary" href="{{url_for('meme_rand')}}">Random</a>
+            <a class="btn btn-outline-primary" href="{{url_for('meme_form')}}">Creator</a>
         </div>
-    </nav>
-    <div class="container">
-        {% block content %}{% endblock %}
-    </div>
-</body>
+    </body>
 </html>

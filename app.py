@@ -1,47 +1,53 @@
-"""Flask web application for generating motivational memes."""
+"""Flask web application for generating memes."""
 
+import logging
 import os
 import random
 import tempfile
 
 import requests
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, render_template, request
 
-from QuoteEngine import Ingestor
 from MemeEngine import MemeEngine
+from MemeEngine.exceptions import MemeGenerationError
+from QuoteEngine import Ingestor
+from QuoteEngine.exceptions import QuoteEngineError
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s — %(name)s — %(levelname)s — %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-meme_engine = MemeEngine('./tmp')
+meme = MemeEngine('./static')
 
 
 def setup():
-    """Load all quotes and image paths from the sample data."""
+    """Load all resources."""
     quote_files = [
         './_data/DogQuotes/DogQuotesTXT.txt',
-        './_data/DogQuotes/DogQuotesCSV.csv',
         './_data/DogQuotes/DogQuotesDOCX.docx',
         './_data/DogQuotes/DogQuotesPDF.pdf',
-        './_data/SimpleLines/SimpleLines.txt',
-        './_data/SimpleLines/SimpleLines.csv',
-        './_data/SimpleLines/SimpleLines.docx',
-        './_data/SimpleLines/SimpleLines.pdf',
+        './_data/DogQuotes/DogQuotesCSV.csv',
     ]
 
     quotes = []
-    for qf in quote_files:
-        if os.path.exists(qf):
-            try:
-                quotes.extend(Ingestor.parse(qf))
-            except Exception:
-                pass
+    for f in quote_files:
+        try:
+            quotes.extend(Ingestor.parse(f))
+        except QuoteEngineError as exc:
+            logger.warning("Could not parse '%s': %s", f, exc)
 
-    images_dir = './_data/photos/dog/'
-    imgs = [
-        os.path.join(images_dir, f)
-        for f in os.listdir(images_dir)
-        if f.lower().endswith(('.jpg', '.jpeg', '.png'))
-    ]
+    images_path = './_data/photos/dog/'
+    imgs = []
+    for root, dirs, files in os.walk(images_path):
+        imgs.extend(
+            os.path.join(root, name)
+            for name in files
+            if name.lower().endswith(('.jpg', '.jpeg', '.png'))
+        )
 
     return quotes, imgs
 
@@ -51,53 +57,48 @@ quotes, imgs = setup()
 
 @app.route('/')
 def meme_rand():
-    """Display a random meme."""
+    """Generate a random meme."""
     img = random.choice(imgs)
     quote = random.choice(quotes)
-    path = meme_engine.make_meme(img, quote.body, quote.author)
+    path = meme.make_meme(img, quote.body, quote.author)
     return render_template('meme.html', path=path)
 
 
 @app.route('/create', methods=['GET'])
 def meme_form():
-    """Show the form for creating a custom meme."""
+    """User input for meme information."""
     return render_template('meme_form.html')
 
 
 @app.route('/create', methods=['POST'])
 def meme_post():
-    """Create a meme from user-submitted data."""
-    image_url = request.form['image_url']
-    body = request.form['body']
-    author = request.form['author']
+    """Create a user-defined meme."""
+    image_url = request.form.get('image_url')
+    body = request.form.get('body', '')
+    author = request.form.get('author', '')
 
-    tmp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
-    tmp_path = tmp_file.name
-    tmp_file.close()
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.jpg')
+    os.close(tmp_fd)
 
     try:
-        response = requests.get(image_url, timeout=10)
+        response = requests.get(image_url, timeout=15)
         response.raise_for_status()
         with open(tmp_path, 'wb') as f:
             f.write(response.content)
 
-        path = meme_engine.make_meme(tmp_path, body, author)
-        return render_template('meme.html', path=path)
-    except Exception as e:
-        return render_template(
-            'meme_form.html',
-            error=f'Could not create meme: {e}',
-        )
+        path = meme.make_meme(tmp_path, body, author)
+    except requests.RequestException as exc:
+        logger.error("Failed to download image: %s", exc)
+        return render_template('meme_form.html'), 400
+    except MemeGenerationError as exc:
+        logger.error("Meme generation failed: %s", exc)
+        return render_template('meme_form.html'), 400
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-
-@app.route('/tmp/<path:filename>')
-def serve_meme(filename):
-    """Serve generated meme images from the tmp directory."""
-    return send_from_directory('./tmp', filename)
+    return render_template('meme.html', path=path)
 
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run()
